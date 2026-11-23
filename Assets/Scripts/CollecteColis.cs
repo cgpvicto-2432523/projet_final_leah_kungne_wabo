@@ -7,6 +7,10 @@ public class CollecteColis : MonoBehaviour
     public float hauteurOrigine = 1.0f;
     public LayerMask coucheColis = ~0;
 
+    [Header("Affichage sur la tête")]
+    public Transform pointTete;
+    private GameObject colisVisuelInstancie;
+
     [Header("État du colis transporté")]
     public DonneesColis colisActuel;
     public float tempsEcouleTransport;
@@ -20,14 +24,12 @@ public class CollecteColis : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.etatActuel != GameManager.EtatPartie.EnCours)
             return;
 
-        // Si on transporte un colis, on incrémente son timer interne
         if (colisActuel != null)
         {
             tempsEcouleTransport += Time.deltaTime;
             return;
         }
 
-        // Sinon, on cherche un colis devant avec un Raycast
         Vector3 origine = transform.position + Vector3.up * hauteurOrigine;
         Debug.DrawRay(origine, transform.forward * distanceMax, Color.yellow);
 
@@ -42,13 +44,44 @@ public class CollecteColis : MonoBehaviour
 
     public void PrendreColis(DonneesColis nouveauColis)
     {
+        if (nouveauColis == null) return;
+
         colisActuel = nouveauColis;
         tempsEcouleTransport = 0f;
         chocsSubis = 0;
+
+        AfficherColisSurTete(nouveauColis);
         Debug.Log($"Colis pris : {colisActuel.nomColis} ({colisActuel.type})");
     }
 
-    // Appelé quand le joueur touche un obstacle
+    private void AfficherColisSurTete(DonneesColis donnees)
+    {
+        SupprimerColisSurTete();
+
+        if (pointTete == null)
+        {
+            Debug.LogWarning("PointTete n'est pas assigné sur CollecteColis !");
+            return;
+        }
+
+        colisVisuelInstancie = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        colisVisuelInstancie.transform.SetParent(pointTete, false);
+        colisVisuelInstancie.transform.localScale = Vector3.one * 0.45f;
+
+        Collider col = colisVisuelInstancie.GetComponent<Collider>();
+        if (col != null) Destroy(col);
+    }
+
+
+    private void SupprimerColisSurTete()
+    {
+        if (colisVisuelInstancie != null)
+        {
+            Destroy(colisVisuelInstancie);
+            colisVisuelInstancie = null;
+        }
+    }
+
     public void SubirChocObstacle()
     {
         if (bouclierActif)
@@ -66,11 +99,11 @@ public class CollecteColis : MonoBehaviour
         if (colisActuel.maxChocsObstacles >= 0 && chocsSubis > colisActuel.maxChocsObstacles)
         {
             Debug.Log($"Colis détruit ({colisActuel.nomColis}) ! Trop de chocs.");
-            colisActuel = null; // Le colis est perdu
+            colisActuel = null;
+            SupprimerColisSurTete();
         }
     }
 
-    // Appelé quand le joueur entre dans la zone de livraison
     public void LivrerColis()
     {
         if (colisActuel == null) return;
@@ -86,5 +119,6 @@ public class CollecteColis : MonoBehaviour
 
         GameManager.Instance.AjouterLivraison(pointsGagnes, tempsGagne);
         colisActuel = null;
+        SupprimerColisSurTete();
     }
 }
